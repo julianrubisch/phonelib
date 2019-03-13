@@ -229,10 +229,10 @@ module Phonelib
     VANITY_4_LETTERS_KEYS_REGEX = /[SVYZ]/.freeze
 
     # @private Area code possible types
-    AREA_CODE_TYPES = [FIXED_LINE, FIXED_OR_MOBILE, MOBILE].freeze
+    AREA_CODE_TYPES = [FIXED_LINE, FIXED_OR_MOBILE, MOBILE, VOIP].freeze
 
     # @private Area code countries for mobile type
-    AREA_CODE_MOBILE_COUNTRIES = %w(AR MX BR).freeze
+    AREA_CODE_MOBILE_COUNTRIES = %w(AR MX BR AT).freeze
 
     # @private Area code mobile phone token
     AREA_CODE_MOBILE_TOKENS = {
