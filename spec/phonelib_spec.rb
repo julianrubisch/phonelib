@@ -203,7 +203,7 @@ describe Phonelib do
 
     it 'returns unformatted when false passed' do
       phone = Phonelib.parse('972542234567')
-      expect(phone.international(false)).to eq('972542234567')
+      expect(phone.international(false)).to eq('+972542234567')
     end
 
     it 'returns sanitized when number invalid but possible' do
@@ -453,7 +453,7 @@ describe Phonelib do
     it 'should be valid for mexico numbers' do
       number = Phonelib.parse('+5215545258448', 'mx')
       expect(number.valid?).to be true
-      expect(number.international).to eq('+52 1 55 4525 8448')
+      expect(number.international).to eq('+52 55 4525 8448')
       expect(number.national).to eq('55 4525 8448')
 
       intl = number.international
@@ -941,7 +941,7 @@ describe Phonelib do
     it 'should simplify national prefix and make phone valid' do
       phone = Phonelib.parse '0445532231113', 'MX'
       expect(phone.valid?).to be true
-      expect(phone.international).to eq('+52 1 55 3223 1113')
+      expect(phone.international).to eq('+52 55 3223 1113')
       expect(phone.country).to eq('MX')
     end
   end
@@ -999,6 +999,94 @@ describe Phonelib do
     end
   end
 
+  # https://github.com/daddyz/phonelib/issues/157
+  describe 'equality' do
+    let(:parsed_number) { Phonelib.parse(raw_number) }
+    let(:raw_number) { '281-330-8004' }
+
+    before { Phonelib.default_country = 'US' }
+    after { Phonelib.default_country = nil }
+
+    context 'when given a number as a string' do
+      it 'is equal' do
+        expect(parsed_number).to eq raw_number
+      end
+    end
+
+    context 'when given identical parsed numbers' do
+      it 'is equal' do
+        expect(parsed_number).to eq Phonelib.parse(raw_number)
+      end
+    end
+
+    context 'when given different representations of the same number' do
+      it 'is equal' do
+        expect(parsed_number).to eq raw_number.tr('-', '')
+      end
+    end
+
+    context 'when given different numbers' do
+      it 'is not equal' do
+        expect(parsed_number).not_to eq '281-330-8005'
+      end
+    end
+
+    context 'when numbers are invalid' do
+      it 'should not be equal' do
+        p1 = Phonelib.parse('+12121231234')
+        expect(parsed_number).not_to eq p1
+      end
+    end
+  end
+
+  context 'issue #161' do
+    before do
+      Phonelib.strict_double_prefix_check = false
+    end
+
+    context 'when strict_double_prefix_check is false' do
+      it 'should be valid number outside the country' do
+        Phonelib.default_country = nil
+        phone = Phonelib.parse('9111844757')
+        expect(phone.valid?).to be true
+        expect(Phonelib.valid?('919111844757')).to be true
+      end
+
+      it 'should be valid number inside the country' do
+        phone = Phonelib.parse('9111844757', 'IN')
+        expect(phone.valid?).to be true
+        expect(Phonelib.valid?('919111844757')).to be true
+
+        Phonelib.default_country = 'IN'
+        phone = Phonelib.parse('9111844757')
+        expect(phone.valid?).to be true
+      end
+    end
+
+    context 'when strict_double_prefix_check is true' do
+      before do
+        Phonelib.strict_double_prefix_check = true
+      end
+
+      it 'should be invalid number outside the country' do
+        Phonelib.default_country = nil
+        phone = Phonelib.parse('9111844757')
+        expect(phone.valid?).to be false
+        expect(Phonelib.valid?('919111844757')).to be true
+      end
+
+      it 'should be valid number inside the country' do
+        phone = Phonelib.parse('9111844757', 'IN')
+        expect(phone.valid?).to be true
+        expect(Phonelib.valid?('919111844757')).to be true
+
+        Phonelib.default_country = 'IN'
+        phone = Phonelib.parse('9111844757')
+        expect(phone.valid?).to be true
+      end
+    end
+  end
+
   context 'valid_country_name method' do
     it 'should not return name for invalid number' do
       phone = Phonelib.parse('+12121231234')
@@ -1016,6 +1104,123 @@ describe Phonelib do
   context 'issue #143' do
     it 'should be valid barbados number' do
       expect(Phonelib.parse('1-246-753-8358', 'BB').valid?).to be true
+    end
+  end
+
+  context 'prefix to international and e164 methods' do
+    it 'should accept prefix in international' do
+      phone = Phonelib.parse('+12125551234;99')
+      expect(phone.valid?).to be true
+      expect(phone.international).to eq('+1 212-555-1234')
+      expect(phone.international(true, '00')).to eq('001 212-555-1234')
+      expect(phone.international('00')).to eq('001 212-555-1234')
+      expect(phone.international_00).to eq('001 212-555-1234')
+      expect(phone.full_international('00')).to eq('001 212-555-1234;99')
+      expect(phone.full_international_00).to eq('001 212-555-1234;99')
+    end
+
+    it 'should accept prefix in e164' do
+      phone = Phonelib.parse('+12125551234;99')
+      expect(phone.valid?).to be true
+      expect(phone.e164).to eq('+12125551234')
+      expect(phone.e164('00')).to eq('0012125551234')
+      expect(phone.e164_00).to eq('0012125551234')
+      expect(phone.full_e164('00')).to eq('0012125551234;99')
+      expect(phone.full_e164_00).to eq('0012125551234;99')
+    end
+
+    it 'should raise error if bad method name passed' do
+      phone = Phonelib.parse('+12125551234;99')
+      expect { phone.fff_00 }.to raise_error(NameError)
+    end
+  end
+
+  context 'issue #160' do
+    it 'should return international number when intl_format is NA' do
+      n = Phonelib.parse('+61 13 12 21', 'au')
+      expect(n.valid?).to be(true)
+      expect(n.full_international).to eq('+61 131221')
+    end
+
+    it 'should use intl_format if it is good' do
+      p = Phonelib.parse('+12125551234')
+      expect(p.valid?).to be(true)
+      expect(p.international).to eq('+1 212-555-1234')
+      expect(p.national).to eq('(212) 555-1234')
+    end
+  end
+
+  context 'issue #152' do
+    it 'should return correct format for MX' do
+      p = Phonelib.parse('0459991234567', 'MX')
+      expect(p.national).to eq('999 123 4567')
+    end
+  end
+
+  context 'issue #171' do
+    it 'should return correct format for VN' do
+      p = Phonelib.parse('902962207', 'VN')
+      expect(p.international).to eq('+84 90 296 22 07')
+      p = Phonelib.parse('844666531', 'VN')
+      expect(p.international).to eq('+84 844 666 531')
+    end
+  end
+
+  context 'issue #203' do
+    it 'should be valid when sanitize all symbols' do
+      p = Phonelib.parse('+1 (713) 555-1212 ; abc')
+      expect(p.valid?).to be(true)
+    end
+
+    it 'should be invalid when sanitize only valuable symbols' do
+      Phonelib.sanitize_regex = '[\.\-\(\) \;\+]'
+      p = Phonelib.parse('+1 (713) 555-1212 ; abc')
+      expect(p.valid?).to be(true)
+    end
+
+    it 'should be valid when sanitize only valuable symbols' do
+      old = Phonelib.sanitize_regex
+      Phonelib.sanitize_regex = '[\.\-\(\) \;\+]'
+      p = Phonelib.parse('+1 (713) 555-1212')
+      expect(p.valid?).to be(true)
+      Phonelib.sanitize_regex = old
+    end
+  end
+
+  context 'additional_regexes' do
+    before(:each) do
+      Phonelib.additional_regexes = []
+    end
+
+    after(:each) do
+      Phonelib.additional_regexes = []
+    end
+
+    it 'should parse number as valid' do
+      phone = '+1-000-000-0000'
+      expect(Phonelib.additional_regexes).to eq({})
+      p1 = Phonelib.parse(phone)
+      expect(p1.valid?).to be(false)
+      Phonelib.add_additional_regex :us, Phonelib::Core::MOBILE, '0{10}'
+      p2 = Phonelib.parse(phone)
+      expect(p2.valid?).to be(true)
+      expect(p2.possible?).to be(true)
+      expect(p2.international).to eq('+1 000 000 0000')
+      expect(p2.country).to eq('US')
+    end
+
+    it 'dump correct' do
+      Phonelib.additional_regexes = []
+      expect(Phonelib.additional_regexes).to eq({})
+      Phonelib.add_additional_regex :us, Phonelib::Core::MOBILE, '0{10}'
+      Phonelib.add_additional_regex :us, Phonelib::Core::MOBILE, '1{10}'
+      expect(Phonelib.dump_additional_regexes).to eq([['US', :mobile, '0{10}'], ['US', :mobile, '1{10}']])
+    end
+
+    it 'load correct' do
+      expect(Phonelib.additional_regexes).to eq({})
+      Phonelib.additional_regexes = [[:us, :mobile, '0{10}'], [:us, :mobile, '1{10}']]
+      expect(Phonelib.dump_additional_regexes).to eq([['US', :mobile, '0{10}'], ['US', :mobile, '1{10}']])
     end
   end
 

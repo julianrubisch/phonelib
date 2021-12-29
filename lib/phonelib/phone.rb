@@ -7,6 +7,9 @@ module Phonelib
     # @!attribute [r] extension
     # @return [String] phone extension passed for parsing after a number
     attr_reader :extension
+    # @!attribute [r] national_number
+    # @return [String] phone national number
+    attr_reader :national_number
 
     # including module that has all phone analyzing methods
     include Phonelib::PhoneAnalyzer
@@ -37,12 +40,21 @@ module Phonelib
       valid? ? e164 : original
     end
 
+    # Compare a phone number against a string or other parsed number
+    # @param other [String|Phonelib::Phone] Phone number to compare against
+    # @return [Boolean] result of equality comparison
+    def ==(other)
+      other = Phonelib.parse(other) unless other.is_a?(Phonelib::Phone)
+      return (e164 == other.e164) if valid? && other.valid?
+      original == other.original
+    end
+
     # method to get sanitized phone number (only numbers)
     # @return [String] Sanitized phone number
     def sanitized
       @sanitized ||=
           vanity_converted(@original).gsub(
-              Phonelib.strict_check ? cr('^\+') : cr('[^0-9]+'),
+              Phonelib.strict_check ? cr('^\+') : cr(Phonelib.sanitize_regex),
               '')
     end
 

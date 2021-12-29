@@ -18,7 +18,7 @@ module Phonelib
       include Phonelib::DataImporterHelper
 
       # countries that can have double country prefix in number
-      DOUBLE_COUNTRY_CODES_COUNTRIES = %w(IN DE BR IT NO PL)
+      DOUBLE_COUNTRY_CODES_COUNTRIES = %w(IN DE BR IT NO PL CU VN)
 
       # main data file in repo
       MAIN_FILE = 'resources/PhoneNumberMetadata.xml'
@@ -145,10 +145,10 @@ module Phonelib
 
         require 'open-uri'
         require 'csv'
-        io = open('http://download.geonames.org/export/dump/countryInfo.txt')
+        io = open('http://api.geonames.org/countryInfoCSV?username=demo&style=full')
         csv = CSV.new(io, {col_sep: "\t"})
         csv.each do |row|
-          next if row[0].start_with?('#') || row[0].empty?
+          next if row[0].nil? || row[0].start_with?('#') || row[0].empty? || row[0].size != 2
 
           @countries[row[0]] = row[4]
         end

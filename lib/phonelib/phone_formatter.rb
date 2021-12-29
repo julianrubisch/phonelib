@@ -36,22 +36,24 @@ module Phonelib
                         Phonelib.phone_data[country][Core::COUNTRY_CODE]
     end
 
-    # Returns e164 formatted phone number
+    # Returns e164 formatted phone number. Method can receive single string parameter that will be defined as prefix
     # @param formatted [Boolean] whether to return numbers only or formatted
+    # @param prefix [String] prefix to be placed before the number, "+" by default
     # @return [String] formatted international number
-    def international(formatted = true)
+    def international(formatted = true, prefix = '+')
+      prefix = formatted if formatted.is_a?(String)
       return nil if sanitized.empty?
-      return "+#{country_prefix_or_not}#{sanitized}" unless valid?
-      return country_code + @national_number unless formatted
+      return "#{prefix}#{country_prefix_or_not}#{sanitized}" unless valid?
+      return "#{prefix}#{country_code}#{@national_number}" unless formatted
 
       fmt = @data[country][:format]
       national = @national_number
       if (matches = @national_number.match(cr(fmt[Core::PATTERN])))
         fmt = fmt[:intl_format] || fmt[:format]
-        national = fmt.gsub(/\$\d/) { |el| matches[el[1].to_i] }
+        national = fmt.gsub(/\$\d/) { |el| matches[el[1].to_i] } unless fmt == 'NA'
       end
 
-      "+#{country_code} #{national}"
+      "#{prefix}#{country_code} #{national}"
     end
 
     # returns national formatted number with extension added
@@ -61,22 +63,25 @@ module Phonelib
     end
 
     # returns international formatted number with extension added
+    # @param prefix [String] prefix to be placed before the number, "+" by default
     # @return [String] formatted internation phone number with extension
-    def full_international
-      "#{international}#{formatted_extension}"
+    def full_international(prefix = '+')
+      "#{international(true, prefix)}#{formatted_extension}"
     end
 
     # returns e164 format of phone with extension added
+    # @param prefix [String] prefix to be placed before the number, "+" by default
     # @return [String] phone formatted in E164 format with extension
-    def full_e164
-      "#{e164}#{formatted_extension}"
+    def full_e164(prefix = '+')
+      "#{e164(prefix)}#{formatted_extension}"
     end
 
     # Returns e164 unformatted phone number
+    # @param prefix [String] prefix to be placed before the number, "+" by default
     # @return [String] phone formatted in E164 format
-    def e164
-      international = self.international
-      international && international.gsub(/[^+0-9]/, '')
+    def e164(prefix = '+')
+      international = self.international(false, '')
+      international && "#{prefix}#{international}"
     end
 
     # returns area code of parsed number
@@ -91,6 +96,15 @@ module Phonelib
         take_group = 2
       end
       format_match[take_group]
+    end
+
+    def method_missing(method, *args)
+      prefix_methods = %w(international_ full_international_ e164_ full_e164_)
+      method_s = method.to_s
+      prefix_methods.each do |key|
+        return send(key[0..-2], method_s.gsub(key, '')) if method_s.start_with?(key)
+      end
+      super
     end
 
     private
@@ -135,7 +149,12 @@ module Phonelib
       rule.gsub!(/(\$NP|\$FG)/, '$NP' => prefix, '$FG' => '$1')
 
       # add space to format groups, change first group to rule,
-      format_string = format[:format].gsub(/(\d)\$/, '\\1 $').gsub('$1', rule)
+      format_string = format[:format].gsub(/(\d)\$/, '\\1 $')
+      if format_string.include? '$1'
+	format_string.gsub! '$1', rule
+      else
+	format_string = rule.gsub('$1', '') + format_string
+      end
 
       @formatting_data =
           [@national_number.match(/#{format[Core::PATTERN]}/), format_string]

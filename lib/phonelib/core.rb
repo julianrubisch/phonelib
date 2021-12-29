@@ -107,6 +107,38 @@ module Phonelib
       @@strict_check = strict
     end
 
+    # @private sanitizing regex, matching symbols will get removed from parsed number, must be string
+    @@sanitize_regex = '[^0-9]+'
+
+    # getter for sanitize regex
+    # @return [String] regex of symbols to wipe from parsed number
+    def sanitize_regex
+      @@sanitize_regex
+    end
+
+    # setter for sanitize regex
+    # @param regex [String] symbols to wipe from parsed number
+    # @return [String] regex of symbols to wipe from parsed number
+    def sanitize_regex=(regex)
+      @@sanitize_regex = regex.is_a?(String) ? regex : regex.to_s
+    end
+
+    # @private strict double prefix check for validator, doesn't sanitize number
+    @@strict_double_prefix_check = false
+
+    # getter for strict double prefix check flag
+    # @return [Boolean] Flag defines whether to do strict double prefix parsing check
+    def strict_double_prefix_check
+      @@strict_double_prefix_check
+    end
+
+    # setter for strict double prefix check flag
+    # @param strict [Boolean] make a strict double prefix parsing or not
+    # @return [Boolean] Flag defines whether to do strict double prefix parsing check
+    def strict_double_prefix_check=(strict)
+      @@strict_double_prefix_check = strict
+    end
+
     @@override_phone_data = nil
     # setter for data file to use
     def override_phone_data=(file_path)
@@ -115,6 +147,42 @@ module Phonelib
 
     def override_phone_data
       @@override_phone_data
+    end
+
+    @@additional_regexes = {}
+    # setter for data file to use
+    def additional_regexes=(data)
+      return unless data.is_a?(Array)
+      @@additional_regexes = {}
+      data.each do |row|
+        next if row.size != 3
+        add_additional_regex(*row)
+      end
+    end
+
+    def add_additional_regex(country, type, national_regex)
+      return unless Phonelib::Core::TYPES_DESC.keys.include?(type.to_sym)
+      return unless national_regex.is_a?(String)
+      @@phone_data = nil
+      @@additional_regexes[country.to_s.upcase] ||= {}
+      @@additional_regexes[country.to_s.upcase][type] ||= []
+      @@additional_regexes[country.to_s.upcase][type] << national_regex
+    end
+
+    def dump_additional_regexes
+      rows = []
+      @@additional_regexes.each do |country, types|
+        types.each do |type, regexes|
+          regexes.each do |regex|
+            rows << [country, type, regex]
+          end
+        end
+      end
+      rows
+    end
+
+    def additional_regexes
+      @@additional_regexes
     end
 
     @@vanity_conversion = false
@@ -360,6 +428,21 @@ module Phonelib
       if override_phone_data
         override_data_file = Marshal.load(File.binread(override_phone_data))
         default_data.merge!(override_data_file)
+      end
+      additional_regexes.each do |country, types|
+        types.each do |type, regex|
+          default_data[country][Core::TYPES][type] ||= {}
+          [Core::VALID_PATTERN, Core::POSSIBLE_PATTERN].each do |key|
+            if default_data[country][Core::TYPES][type][key]
+              default_data[country][Core::TYPES][type][key] << "|#{regex.join('|')}"
+            else
+              default_data[country][Core::TYPES][type][key] = regex.join('|')
+            end
+            if type != Core::GENERAL
+              default_data[country][Core::TYPES][Core::GENERAL][key] << "|#{regex.join('|')}"
+            end
+          end
+        end
       end
       default_data
     end

@@ -49,7 +49,7 @@ module Phonelib
     # * +id_key+   - parameter id key in resolved extended data for number
     #
     def get_ext_name(names_key, id_key)
-      return nil unless ext_data[id_key] > 0
+      return nil unless ext_data[id_key]
 
       res = Phonelib.phone_ext_data[names_key][ext_data[id_key]]
       return nil unless res
@@ -58,7 +58,7 @@ module Phonelib
 
     # @private returns extended data ids for current number
     def ext_data
-      return @ext_data if @ext_data
+      return @ext_data if defined?(@ext_data) && @ext_data
 
       result = default_ext_data
       return result unless possible?
@@ -79,7 +79,7 @@ module Phonelib
     # @private default extended data
     def default_ext_data
       result = {}
-      EXT_KEYS.each { |key| result[key] = 0 }
+      EXT_KEYS.each { |key| result[key] = nil }
       result
     end
   end

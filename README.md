@@ -2,7 +2,7 @@
 
 [![Built in integration with JetBrains RubyMine](https://github.com/daddyz/phonelib/blob/master/icon_RubyMine.png?raw=true)](https://www.jetbrains.com/ruby/)
 [![Gem Version](https://badge.fury.io/rb/phonelib.svg)](http://badge.fury.io/rb/phonelib)
-[![Build Status](https://travis-ci.org/daddyz/phonelib.png?branch=master)](http://travis-ci.org/daddyz/phonelib)
+[![Build Status](https://travis-ci.com/daddyz/phonelib.svg?branch=master)](http://travis-ci.com/daddyz/phonelib)
 [![](https://codeclimate.com/github/daddyz/phonelib/badges/coverage.svg)](https://codeclimate.com/github/daddyz/phonelib/coverage)
 [![](https://codeclimate.com/github/daddyz/phonelib/badges/gpa.svg)](https://codeclimate.com/github/daddyz/phonelib)
 [![Inline docs](http://inch-ci.org/github/daddyz/phonelib.svg?branch=master)](http://inch-ci.org/github/daddyz/phonelib)
@@ -61,6 +61,18 @@ To disable sanitizing of passed phone number (keeping digits only)
 Phonelib.strict_check = true
 ```
 
+To change sanitized symbols on parsed number, so non-specified symbols won't be wiped and will fail the parsing
+
+``` ruby
+Phonelib.sanitize_regex = '[\.\-\(\) \;\+]'
+```
+
+To disable sanitizing of double prefix on passed phone number
+
+```ruby
+Phonelib.strict_double_prefix_check = true
+```
+
 To set different extension separator on formatting, this setting doesn't affect parsing. Default setting is ';'
 
 ``` ruby
@@ -71,7 +83,7 @@ To set symbols that are used for separating extension from phone number for pars
 
 ``` ruby
 Phonelib.extension_separate_symbols = '#;'           # for single symbol separator
-Phonelib.extension_separator = %w(ext # ; extension) # each string will be treated as separator
+Phonelib.extension_separate_symbols = %w(ext # ; extension) # each string will be treated as separator
 ```
 
 In case you need to overwrite some Google's libphonenumber library data, you need to assign file path to this setter. File should be Marshal.dump'ed with existing structure like in ```Phonelib.phone_data```. Gem is simply doing ```merge``` between hashes.
@@ -79,6 +91,21 @@ In case you need to overwrite some Google's libphonenumber library data, you nee
 ``` ruby
 Phonelib.override_phone_data = '/path/to/override_phone_data.dat'
 ```
+
+In case you want to add some custom or still not updated regex patterns for certain type you can use additional regexes feature in a following way:
+
+``` ruby
+Phonelib.add_additional_regex :us, Phonelib::Core::MOBILE, '[5]{10}' # this will add number 1-555-555-5555 to be valid
+Phonelib.add_additional_regex :gb, Phonelib::Core::MOBILE, '[1]{5}' # this will add number 44-11-111 to be valid
+# you can also specify all regexes using this method
+Phonelib.additional_regexes = [[:us, :mobile, "[5]{10}"], [:gb, :mobile, "[1]{5}"]]
+# or just use dump method to keep them altogether
+Phonelib.dump_additional_regexes # => [["US", :mobile, "[5]{10}"], ["GB", :mobile, "[1]{5}"]
+```
+
+(!) For a list of available types refer to this readme.
+
+(!) Please note that regex should be added as string
 
 In case phone number that was passed for parsing has "+" sign in the beginning, library will try to detect a country regarding the provided one.
 
@@ -238,10 +265,31 @@ You can get E164 formatted number
 phone.e164 # returns number in E164 format
 ```
 
+You can define prefix for ```international``` and ```e164``` related methods to get formatted number prefixed with anything you need.
+
+``` ruby
+phone.international('00')      # returns formatted international number prefixed by 00 instead of +
+phone.e164('00')               # returns e164 represantation of a number prefixed by 00 instead of +
+phone.full_international('00') # returns formatted international number with extension prefixed by 00 instead of +
+phone.full_e164('00')          # returns e164 represantation of a number with extension prefixed by 00 instead of +
+phone.international_00         # same as phone.international('00'). 00 can be replaced with whatever you need
+phone.e164_00                  # same as phone.international('00') 
+```
+
 There is a ```to_s``` method, it will return ```e164``` in case number is valid and ```original``` otherwise
 
 ``` ruby
 phone.to_s # returns number in E164 format if number is valid or original otherwise
+```
+
+You can compare 2 instances of ```Phonelib::Phone``` with ```==``` method or just use it with string
+
+```ruby 
+phone1 = Phonelib.parse('+12125551234') # Phonelib::Phone instance
+phone2 = Phonelib.parse('+12125551234') # Phonelib::Phone instance
+phone1 == phone2                        # returns true
+phone1 == '+12125551234'                # returns true
+phone1 == '12125551234;123'             # returns true
 ```
 
 There is extended data available for numbers. It will return <tt>nil</tt> in case there is no data or phone is impossible.
