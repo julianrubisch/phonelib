@@ -3,6 +3,14 @@ module Phonelib
   module PhoneAnalyzerHelper
     private
 
+    def decorate_analyze_result(result)
+      if result.size == 1
+        result
+      else
+        Hash[result.take(1)]
+      end
+    end
+
     def original_starts_with_plus?
       original_s[0] == Core::PLUS_SIGN
     end
@@ -24,7 +32,7 @@ module Phonelib
     # defines if to validate against single country or not
     def passed_country(country)
       code = country_prefix(country)
-      if Core::PLUS_SIGN == @original[0] && code && !sanitized.start_with?(code)
+      if !Phonelib.ignore_plus && Core::PLUS_SIGN == @original[0] && code && !sanitized.start_with?(code)
         # in case number passed with + but it doesn't start with passed
         # country prefix
         country = nil
@@ -90,7 +98,11 @@ module Phonelib
     # * +country+ - country passed for parsing
     def country_or_default_country(country)
       country ||= (original_starts_with_plus? ? nil : Phonelib.default_country)
-      country && country.to_s.upcase
+      if country.is_a?(Array)
+        country.compact.map { |e| e.to_s.upcase }
+      else
+        [country && country.to_s.upcase]
+      end
     end
 
     # constructs full regex for phone validation for provided phone data

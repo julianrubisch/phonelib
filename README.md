@@ -2,7 +2,7 @@
 
 [![Built in integration with JetBrains RubyMine](https://github.com/daddyz/phonelib/blob/master/icon_RubyMine.png?raw=true)](https://www.jetbrains.com/ruby/)
 [![Gem Version](https://badge.fury.io/rb/phonelib.svg)](http://badge.fury.io/rb/phonelib)
-[![Build Status](https://travis-ci.com/daddyz/phonelib.svg?branch=master)](http://travis-ci.com/daddyz/phonelib)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/daddyz/phonelib/tree/master.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/daddyz/phonelib/tree/master)
 [![](https://codeclimate.com/github/daddyz/phonelib/badges/coverage.svg)](https://codeclimate.com/github/daddyz/phonelib/coverage)
 [![](https://codeclimate.com/github/daddyz/phonelib/badges/gpa.svg)](https://codeclimate.com/github/daddyz/phonelib)
 [![Inline docs](http://inch-ci.org/github/daddyz/phonelib.svg?branch=master)](http://inch-ci.org/github/daddyz/phonelib)
@@ -10,6 +10,11 @@
 Phonelib is a gem allowing you to validate phone number. All validations are based on [Google libphonenumber](https://github.com/googlei18n/libphonenumber).
 Currently it can make basic validations and formatting to e164 international number format and national number format with prefix.
 But it still doesn't include all Google's library functionality.
+
+## Incorrect parsing or validation
+
+In case your phone number is incorrectly parsed, you can check original libphonenumber for result [here](https://rawgit.com/googlei18n/libphonenumber/master/javascript/i18n/phonenumbers/demo-compiled.html) and in case of same parse result [open an issue for them](https://issuetracker.google.com/issues/new?component=192347&template=829703). This gem's data is based on it.
+If you can't wait for libphonenumber to resolve the issue, try to use ```Phonelib.add_additional_regex``` and ```Phonelib.additional_regexes``` methods.
 
 ## Information
 
@@ -37,10 +42,11 @@ gem 'phonelib'
 
 Run the bundle command to install it.
 
-To set the default country (country names are [ISO 3166-1 Alpha-2](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) codes), create a initializer in <tt>config/initializers/phonelib.rb</tt>:
+To set the default country or several default countries for parsing (country names are [ISO 3166-1 Alpha-2](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) codes), create a initializer in <tt>config/initializers/phonelib.rb</tt>:
 
 ``` ruby
 Phonelib.default_country = "CN"
+Phonelib.default_country = ['CN', 'FR']
 ```
 
 To use the ability to parse special numbers (Short Codes, Emergency etc.) you can set ```Phonelib.parse_special```. This is disabled by default
@@ -59,6 +65,12 @@ To disable sanitizing of passed phone number (keeping digits only)
 
 ``` ruby
 Phonelib.strict_check = true
+```
+
+To disable country reset during parsing in case phone starts with + sign and country specified but country phone prefix doesn't match phone's prefix
+
+``` ruby
+Phonelib.ignore_plus = true
 ```
 
 To change sanitized symbols on parsed number, so non-specified symbols won't be wiped and will fail the parsing
@@ -252,7 +264,7 @@ phone.full_e164          # returns e164 phone representation with extension
 phone.full_international # returns formatted international number with extension
 ```
 
-You can pass <tt>false</tt> to <tt>national</tt> and <tt>international</tt> methods in order to get unformatted representaions
+You can pass <tt>false</tt> to <tt>national</tt> and <tt>international</tt> methods in order to get unformatted representations
 
 ``` ruby
 phone.international(false) # returns unformatted international phone

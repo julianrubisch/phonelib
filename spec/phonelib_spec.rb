@@ -312,6 +312,12 @@ describe Phonelib do
       phone = Phonelib.parse('7731231234')
       expect(phone.country_code).to be_nil
     end
+
+    it 'returns correct country code for prefix 1 countries' do
+      expect(Phonelib.parse("+1 809-538-0020").country_code).to eq('1809')
+      expect(Phonelib.parse("+1 232-671-1234").country_code).to eq('1')
+      expect(Phonelib.parse("+1 787-671-1234").country_code).to eq('1787')
+    end
   end
 
   context 'default_country' do
@@ -342,6 +348,30 @@ describe Phonelib do
       Phonelib.default_country = :CN
       phone = Phonelib.parse('+41 44 668 18 00')
       expect(phone.valid?).to be true
+      Phonelib.default_country = nil
+    end
+
+    it 'should be valid when number valid and several default countries' do
+      Phonelib.default_country = [:us, :pr, :as, :gu, :mp, :vi]
+      phone = Phonelib.parse('7876711234')
+      expect(phone.valid?).to be true
+      Phonelib.default_country = nil
+    end
+
+    it 'should be valid when number valid pr and several default countries without pr' do
+      Phonelib.default_country = [:us, :as, :gu, :mp, :vi]
+      phone = Phonelib.parse('7876711234')
+      expect(phone.possible?).to be true
+      expect(phone.valid?).to be false
+      expect(phone.countries).to eq(['US'])
+      Phonelib.default_country = nil
+    end
+
+    it 'should be valid when number not valid and several default countries' do
+      Phonelib.default_country = [:us, :as, :gu, :mp, :vi]
+      phone = Phonelib.parse('123123')
+      expect(phone.possible?).to be false
+      expect(phone.valid?).to be false
       Phonelib.default_country = nil
     end
   end
@@ -1184,6 +1214,29 @@ describe Phonelib do
       p = Phonelib.parse('+1 (713) 555-1212')
       expect(p.valid?).to be(true)
       Phonelib.sanitize_regex = old
+    end
+  end
+
+  context 'issue #261' do
+    before(:each) do
+      Phonelib.ignore_plus = false
+    end
+
+    after(:each) do
+      Phonelib.ignore_plus = false
+    end
+
+    it 'should parse as valid and change country when plus is not ignored' do
+      p = Phonelib.parse("+850 2 381 7980", "US")
+      expect(p.valid?).to be(true)
+      expect(p.country).to eq('KP')
+    end
+
+    it 'should parse as invalid when plus is ignored' do
+      Phonelib.ignore_plus = true
+      p = Phonelib.parse("+850 2 381 7980", "US")
+      expect(p.valid?).to be(false)
+      expect(p.country).to be(nil)
     end
   end
 
