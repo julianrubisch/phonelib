@@ -124,15 +124,22 @@ module Phonelib
     #
     # * +phone+ - phone number for parsing
     def detect_and_parse(phone, country)
-      result = {}
-      Phonelib.phone_data.each do |key, data|
+      countries_data = country_code_candidates_for(phone).flat_map { |code|
+        Phonelib.data_by_country_codes[code] || []
+      }
+      countries_data.each_with_object({}) do |data, result|
+        key = data[:id]
         parsed = parse_single_country(phone, data)
         if (!Phonelib.strict_double_prefix_check || key == country) && double_prefix_allowed?(data, phone, parsed && parsed[key])
           parsed = parse_single_country(changed_dp_phone(key, phone), data)
         end
         result.merge!(parsed) unless parsed.nil?
-      end
-      result
+      end.compact
+    end
+
+    def country_code_candidates_for(phone)
+      stripped_phone = phone.gsub(/^(#{Phonelib.phone_data_int_prefixes})/, '')
+      ((1..3).map { |length| phone[0, length] } + (1..3).map { |length| stripped_phone[0, length] }).uniq
     end
 
     # Create phone representation in e164 format

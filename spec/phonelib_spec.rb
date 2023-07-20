@@ -656,6 +656,15 @@ describe Phonelib do
       expect(phone.full_e164).to eq('+972542234567#123')
       expect(phone.full_international).to eq('+972 54-223-4567#123')
     end
+
+    it 'should support nil separator' do
+      Phonelib.extension_separate_symbols = nil
+
+      phone = Phonelib.parse('972542234567#123')
+      expect(phone.original).to eq('972542234567#123')
+      expect(phone.sanitized).to eq('972542234567123')
+      expect(phone.extension).to eq('')
+    end
   end
 
   context 'issue #59' do
@@ -1274,6 +1283,53 @@ describe Phonelib do
       expect(Phonelib.additional_regexes).to eq({})
       Phonelib.additional_regexes = [[:us, :mobile, '0{10}'], [:us, :mobile, '1{10}']]
       expect(Phonelib.dump_additional_regexes).to eq([['US', :mobile, '0{10}'], ['US', :mobile, '1{10}']])
+    end
+  end
+
+  context 'issue #277 double prefix with country' do
+    it 'should be invalid unless number starts with country prefix' do
+      expect(Phonelib.valid_for_country?("88097679","IN")).to be(false)
+      expect(Phonelib.valid_for_country?("+9188097679","IN")).to be(false)
+    end
+
+    it 'should be valid if number starts with country prefix' do
+      expect(Phonelib.valid_for_country?("9188097679","IN")).to be(true)
+    end
+  end
+
+  context 'issue #278 multiple default countries' do
+    after(:each) do
+      Phonelib.default_country = nil
+    end
+
+    it 'should be valid if only ca as default country' do
+      Phonelib.default_country = :ca
+      p1 = Phonelib.parse('6478864691')
+      expect(p1.valid?).to be(true)
+      expect(p1.countries).to eq(['CA'])
+      p2 = Phonelib.parse('6047642951')
+      expect(p2.valid?).to be(true)
+      expect(p2.countries).to eq(['CA'])
+    end
+
+    it 'should be valid if only us and ca as default countries' do
+      Phonelib.default_country = [:us, :ca]
+      p1 = Phonelib.parse('6478864691')
+      expect(p1.valid?).to be(true)
+      expect(p1.countries).to eq(['CA'])
+      p2 = Phonelib.parse('6047642951')
+      expect(p2.valid?).to be(true)
+      expect(p2.countries).to eq(['CA'])
+    end
+
+    it 'should be valid if only ca and us as default countries' do
+      Phonelib.default_country = [:ca, :us]
+      p1 = Phonelib.parse('6478864691')
+      expect(p1.valid?).to be(true)
+      expect(p1.countries).to eq(['CA'])
+      p2 = Phonelib.parse('6047642951')
+      expect(p2.valid?).to be(true)
+      expect(p2.countries).to eq(['CA'])
     end
   end
 

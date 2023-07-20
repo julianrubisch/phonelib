@@ -10,6 +10,16 @@ module Phonelib
       @@phone_data ||= load_data.freeze
     end
 
+    # @private getter for phone data indexed by country code (internal use only)
+    def data_by_country_codes
+      @@data_by_country_codes ||= phone_data.each_value.group_by { |d| d[COUNTRY_CODE] }.freeze
+    end
+
+    # @private getter for all international prefixes in phone_data
+    def phone_data_int_prefixes
+      @@all_int_prefixes ||= phone_data.map {|k,v| v[:international_prefix] }.select { |v| v != '' }.compact.uniq.join('|').freeze
+    end
+
     # @private used to cache frequently-used regular expressions
     @@phone_regexp_cache = {}
 
@@ -30,14 +40,14 @@ module Phonelib
     @@default_country = nil
 
     # getter method for default_country variable
-    # @return [String|nil] Default country set for parsing or nil
+    # @return [String,Symbol,Array<String,Symbol>,nil] Default country ISO2 code or codes used for parsing
     def default_country
       @@default_country
     end
 
     # setter method for default_country variable
-    # @param country [String|Symbol] default country ISO2 code used for parsing
-    # @return [String|nil] Default country set for parsing or nil
+    # @param country [String,Symbol,Array<String,Symbol>] Default country ISO2 code or codes used for parsing
+    # @return [String,Symbol,Array<String,Symbol>] Default country ISO2 code or codes used for parsing
     def default_country=(country)
       @@default_country = country
     end
@@ -179,7 +189,7 @@ module Phonelib
     def add_additional_regex(country, type, national_regex)
       return unless Phonelib::Core::TYPES_DESC.keys.include?(type.to_sym)
       return unless national_regex.is_a?(String)
-      @@phone_data = nil
+      @@phone_data = @@data_by_country_codes = nil
       @@additional_regexes[country.to_s.upcase] ||= {}
       @@additional_regexes[country.to_s.upcase][type] ||= []
       @@additional_regexes[country.to_s.upcase][type] << national_regex
