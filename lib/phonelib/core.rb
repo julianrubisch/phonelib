@@ -339,7 +339,7 @@ module Phonelib
     AREA_CODE_TYPES = [FIXED_LINE, FIXED_OR_MOBILE, MOBILE, VOIP].freeze
 
     # @private Area code countries for mobile type
-    AREA_CODE_MOBILE_COUNTRIES = %w(AR MX BR AT GB).freeze
+    AREA_CODE_MOBILE_COUNTRIES = %w(AR MX BR AT GB CH DE).freeze
 
     # @private Area code mobile phone token
     AREA_CODE_MOBILE_TOKENS = {
