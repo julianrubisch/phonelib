@@ -1,8 +1,5 @@
 require 'phonelib'
 
-# deprecated code climate
-#require 'codeclimate-test-reporter'
-#CodeClimate::TestReporter.start
 require 'simplecov'
 SimpleCov.start
 
@@ -388,7 +385,14 @@ describe Phonelib do
 
     it 'should have timezone' do
       phone = Phonelib.parse('12015551234')
+      expect(phone.timezones).to eq(['America/New_York'])
       expect(phone.timezone).to eq('America/New_York')
+    end
+
+    it 'should have multiple timezones' do
+      phone = Phonelib.parse('+3911111111')
+      expect(phone.timezones).to eq(["Europe/Rome", "Europe/Vatican"])
+      expect(phone.timezone).to eq('Europe/Rome')
     end
 
     it 'should have carrier' do
@@ -485,7 +489,7 @@ describe Phonelib do
 
   context 'issue #33' do
     it 'should be valid for mexico numbers' do
-      number = Phonelib.parse('+5215545258448', 'mx')
+      number = Phonelib.parse('+525545258448', 'mx')
       expect(number.valid?).to be true
       expect(number.international).to eq('+52 55 4525 8448')
       expect(number.national).to eq('55 4525 8448')
@@ -982,7 +986,7 @@ describe Phonelib do
 
   context 'issue #132' do
     it 'should simplify national prefix and make phone valid' do
-      phone = Phonelib.parse '0445532231113', 'MX'
+      phone = Phonelib.parse '095532231113', 'MX'
       expect(phone.valid?).to be true
       expect(phone.international).to eq('+52 55 3223 1113')
       expect(phone.country).to eq('MX')
@@ -1195,7 +1199,7 @@ describe Phonelib do
 
   context 'issue #152' do
     it 'should return correct format for MX' do
-      p = Phonelib.parse('0459991234567', 'MX')
+      p = Phonelib.parse('099991234567', 'MX')
       expect(p.national).to eq('999 123 4567')
     end
   end
@@ -1337,6 +1341,107 @@ describe Phonelib do
     end
   end
 
+  context 'issue #304' do
+    it 'should strip AR prefix' do
+      phone = Phonelib.parse('+540111557447700', 'AR')
+      expect(phone.valid_for_country?('AR')).to be(true)
+      expect(phone.e164).to eq('+5491157447700')
+      expect(phone.national).to eq('011 15-5744-7700')
+      expect(phone.international).to eq('+54 9 11 5744-7700')
+    end
+  end
+
+  context 'issue #303' do
+    it 'should parse possible numbers if countries array passed' do
+      p1 = Phonelib.parse('1212 111 1111', :us)
+      expect(p1.valid?).to be(false)
+      expect(p1.possible?).to be(true)
+
+      p2 = Phonelib.parse('1212 111 1111', %w(US CA))
+      expect(p2.valid?).to be(false)
+      expect(p2.possible?).to be(true)
+
+      expect(p1.e164).to eq(p2.e164)
+    end
+
+    it 'should parse valid numbers if countries array passed' do
+      p1 = Phonelib.parse('16478864691', :ca)
+      expect(p1.valid?).to be(true)
+      expect(p1.possible?).to be(true)
+
+      p2 = Phonelib.parse('16478864691', %w(US CA))
+      expect(p2.valid?).to be(true)
+      expect(p2.possible?).to be(true)
+
+      expect(p1.e164).to eq(p2.e164)
+    end
+  end
+
+  context 'issue #309' do
+    it 'should return same result without specifying country' do
+      p1 = Phonelib.parse('+55 55 96722 8964', 'BR')
+      p2 = Phonelib.parse('+55 55 96722 8964')
+      expect(p1.valid?).to be(p2.valid?)
+      expect(p1.international).to eq(p2.international)
+    end
+  end
+
+  context 'issue #324' do
+    before(:each) do
+      Phonelib.additional_regexes = []
+    end
+
+    after(:each) do
+      Phonelib.additional_regexes = []
+    end
+
+    it 'should not throw error and be valid without additional' do
+      expect(Phonelib.parse("+213 551234567").valid?).to be(true)
+    end
+
+    it 'should not throw error and be valid with additional' do
+      Phonelib.additional_regexes = [[:fr, :mobile, '07\d{8}'],[:dz, :mobile, '0(5|6)\d{8}'],]
+      p = Phonelib.parse("+213 551234567")
+      expect(p.valid?).to be(true)
+      expect(p.international).to eq('+213 551 23 45 67')
+    end
+
+    it 'should not throw error and be valid with additional full match' do
+      Phonelib.additional_regexes = [[:fr, :mobile, '^07\d{8}$'],[:dz, :mobile, '^0(5|6)\d{8}$'],]
+      p = Phonelib.parse("+213 551234567")
+      expect(p.valid?).to be(true)
+      expect(p.international).to eq('+213 551 23 45 67')
+    end
+
+    it 'should not throw error and be valid with several additional' do
+      Phonelib.additional_regexes = [[:fr, :mobile, '^07\d{8}$'],[:dz, :mobile, '^0(5|6)\d{18}$'],[:dz, :mobile, '^0(1|2)\d{18}$'],]
+      p = Phonelib.parse("+213 551234567")
+      expect(p.valid?).to be(true)
+      expect(p.international).to eq('+213 551 23 45 67')
+    end
+
+    it 'should not throw error and be valid with additional without (' do
+      Phonelib.additional_regexes = [[:fr, :mobile, '^07\d{8}$'],[:dz, :mobile, '^05|6\d{8}$'],]
+      p = Phonelib.parse("+213 551234567")
+      expect(p.valid?).to be(true)
+      expect(p.international).to eq('+213 551 23 45 67')
+    end
+
+    it 'should not throw error and be valid with several additional without (' do
+      Phonelib.additional_regexes = [[:fr, :mobile, '^07\d{8}$'],[:dz, :mobile, '^05|6\d{18}$'],[:dz, :mobile, '^01|2\d{18}$'],]
+      p = Phonelib.parse("+213 551234567")
+      expect(p.valid?).to be(true)
+      expect(p.international).to eq('+213 551 23 45 67')
+    end
+  end
+
+  context 'issue #332' do
+    it 'should parse short number as invalid without replaced prefix' do
+      p = Phonelib.parse('+44008123')
+      expect(p.valid?).to be(false)
+    end
+  end
+
   context 'example numbers' do
     it 'are valid' do
       data_file = File.dirname(__FILE__) + '/../data/phone_data.dat'
@@ -1354,6 +1459,15 @@ describe Phonelib do
             phone_assertions(phone, type, country, msg)
           end
         end
+      end
+    end
+
+    context 'issue #325' do
+      it 'should change number according to new format' do
+        p = Phonelib.parse("540111557447700")
+        expect(p.country).to eq('AR')
+        expect(p.e164).to eq('+5491157447700')
+        expect(p.valid?).to be(true)
       end
     end
 

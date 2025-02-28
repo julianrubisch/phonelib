@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Phonelib
   # module includes all formatting methods
   module PhoneFormatter
@@ -52,7 +54,7 @@ module Phonelib
     def international(formatted = true, prefix = '+')
       prefix = formatted if formatted.is_a?(String)
       return nil if sanitized.empty?
-      return "#{prefix}#{country_prefix_or_not}#{sanitized}" unless possible?
+      return "#{prefix}#{sanitized}" unless possible?
       return "#{prefix}#{data_country_code}#{@national_number}" unless formatted
 
       fmt = @data[country][:format]
@@ -135,12 +137,6 @@ module Phonelib
       true
     end
 
-    # @private defines whether to put country prefix or not
-    def country_prefix_or_not
-      return '' unless data_country_code
-      sanitized.start_with?(data_country_code) ? '' : data_country_code
-    end
-
     # @private returns extension with separator defined
     def formatted_extension
       return '' if @extension.nil? || @extension.empty?
@@ -159,7 +155,7 @@ module Phonelib
              data[Core::NATIONAL_PREFIX_RULE] || '$1'
 
       # change rule's constants to values
-      rule.gsub!(/(\$NP|\$FG)/, '$NP' => prefix, '$FG' => '$1')
+      rule = rule.gsub(/(\$NP|\$FG)/, '$NP' => prefix, '$FG' => '$1')
 
       # add space to format groups, change first group to rule,
       format_string = format[:format].gsub(/(\d)\$/, '\\1 $')

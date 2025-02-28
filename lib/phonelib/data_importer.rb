@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'phonelib/data_importer_helper'
 
 module Phonelib
@@ -6,7 +8,7 @@ module Phonelib
     require 'nokogiri'
 
     # official libphonenumber repo for cloning
-    REPO = 'https://github.com/googlei18n/libphonenumber.git'
+    REPO = 'https://github.com/google/libphonenumber.git'
 
     # importing function
     def self.import
@@ -126,6 +128,9 @@ module Phonelib
           if country[Core::NATIONAL_PREFIX_TRANSFORM_RULE]
             country[Core::NATIONAL_PREFIX_TRANSFORM_RULE].gsub!('$', '\\')
           end
+          if country[:id] == '001'
+            country[:id] = 'International ' + country[:country_code]
+          end
           @data[country[:id]] = country
         end
       end
@@ -198,7 +203,7 @@ module Phonelib
         require 'open-uri'
         require 'csv'
         io = URI.open('http://download.geonames.org/export/dump/countryInfo.txt')
-        csv = CSV.new(io, {col_sep: "\t"})
+        csv = CSV.new(io, **{col_sep: "\t"})
         csv.each do |row|
           next if row[0].nil? || row[0].start_with?('#') || row[0].empty? || row[0].size != 2
 
@@ -209,7 +214,7 @@ module Phonelib
       # adds double country code flag in case country allows
       def add_double_country_flag(country)
         if DOUBLE_COUNTRY_CODES_COUNTRIES.include?(country[:id])
-          country[:double_prefix] = true
+          country[Core::DOUBLE_COUNTRY_PREFIX_FLAG] = true
         end
         country
       end

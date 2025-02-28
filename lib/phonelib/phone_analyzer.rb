@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Phonelib
   # @private phone analyzing methods module
   module PhoneAnalyzer
@@ -17,7 +19,6 @@ module Phonelib
     #   country (2 letters) like 'US', 'us' or :us for United States
     def analyze(phone, passed_country)
       countries = country_or_default_country passed_country
-
       return analyze_single_country(phone, countries.first, passed_country) if countries.size == 1
 
       results = {}
@@ -32,7 +33,7 @@ module Phonelib
 
     # pick best result when several countries specified
     def pick_results(results)
-      [:valid, :possible].each do |key|
+      Core::VALID_POSSIBLE_ARRAY.each do |key|
         final = results.select { |_k, v| v[key].any? }
         return decorate_analyze_result(final) if final.size > 0
       end
@@ -68,12 +69,19 @@ module Phonelib
     end
 
     # replacing national prefix to simplified format
-    def with_replaced_national_prefix(phone, data)
-      return phone unless data[Core::NATIONAL_PREFIX_TRANSFORM_RULE]
+    def with_replaced_national_prefix(passed_phone, data)
+      return passed_phone unless data[Core::NATIONAL_PREFIX_TRANSFORM_RULE]
+      phone = if passed_phone.start_with?(data[Core::COUNTRY_CODE]) && !data[Core::DOUBLE_COUNTRY_PREFIX_FLAG]
+                passed_phone.delete_prefix(data[Core::COUNTRY_CODE])
+              else
+                passed_phone
+              end
+      return passed_phone unless phone.match? cr("^#{type_regex(data[Core::TYPES][Core::GENERAL], Core::POSSIBLE_PATTERN)}$")
+
       pattern = cr("^(?:#{data[Core::NATIONAL_PREFIX_FOR_PARSING]})")
       match = phone.match pattern
       if match && match.captures.compact.size > 0
-        phone.gsub(pattern, data[Core::NATIONAL_PREFIX_TRANSFORM_RULE])
+        data[Core::COUNTRY_CODE] + phone.gsub(pattern, data[Core::NATIONAL_PREFIX_TRANSFORM_RULE])
       else
         phone
       end
@@ -130,15 +138,17 @@ module Phonelib
       countries_data.each_with_object({}) do |data, result|
         key = data[:id]
         parsed = parse_single_country(phone, data)
+        parsed = parse_single_country(with_replaced_national_prefix(phone, data), data) unless parsed && parsed[key] && parsed[key][:valid].size > 0
         if (!Phonelib.strict_double_prefix_check || key == country) && double_prefix_allowed?(data, phone, parsed && parsed[key])
-          parsed = parse_single_country(changed_dp_phone(key, phone), data)
+          parsed2 = parse_single_country(changed_dp_phone(key, phone), data)
+          parsed = parsed2 if parsed2 && parsed2[key] && parsed2[key][:valid].size > 0
         end
         result.merge!(parsed) unless parsed.nil?
       end.compact
     end
 
     def country_code_candidates_for(phone)
-      stripped_phone = phone.gsub(/^(#{Phonelib.phone_data_int_prefixes})/, '')
+      stripped_phone = phone.gsub(cr("Phonelib.phone_data_int_prefixes") { /^(#{Phonelib.phone_data_int_prefixes})/ }, '')
       ((1..3).map { |length| phone[0, length] } + (1..3).map { |length| stripped_phone[0, length] }).uniq
     end
 
@@ -171,7 +181,11 @@ module Phonelib
     # * +not_valid+ - specifies that number is not valid by general desc pattern
     def national_and_data(data, country_match, not_valid = false)
       result = data.select { |k, _v| k != :types && k != :formats }
-      phone = country_match.to_a.last
+      index = 0
+      if Phonelib.additional_regexes.is_a?(Hash) && Phonelib.additional_regexes[data[:id]]
+        index = Phonelib.additional_regexes[data[:id]].values.flatten.join('|').scan(/\(/).size
+      end
+      phone = country_match[-1 - index]
       result[:national] = phone
       result[:format] = number_format(phone, data[Core::FORMATS])
       result.merge! all_number_types(phone, data[Core::TYPES], not_valid)
@@ -212,7 +226,7 @@ module Phonelib
     def number_format(national, format_data)
       format_data && format_data.find do |format|
         (format[Core::LEADING_DIGITS].nil? || \
-            national.match(cr("^(#{format[Core::LEADING_DIGITS]})"))) && \
+            national.match?(cr("^(#{format[Core::LEADING_DIGITS]})"))) && \
           national.match(cr("^(#{format[Core::PATTERN]})$"))
       end || Core::DEFAULT_NUMBER_FORMAT
     end
@@ -233,7 +247,7 @@ module Phonelib
           type_regex(patterns, Core::VALID_PATTERN)
         ]
       else
-        [nil, nil]
+        Core::NIL_RESULT_ARRAY
       end
     end
   end
